@@ -66,37 +66,66 @@ cluster_spread_y = rng.uniform(0.05, 0.2, size=NUM_CLUSTERS)
 cluster_angle = rng.uniform(0, np.pi, size=NUM_CLUSTERS)
 
 # ------- Glowing Cores -------
-# FIX: this was tangled inside the blob loop — it belongs here, run once per cluster
 for i in range(NUM_CLUSTERS):
     cx, cy = cluster_x[i], cluster_y[i]
-    for size, alpha in [(10000, 0.02), (5000, 0.03), (1000, 0.06), (200, 0.1)]:
+    for size, alpha in [(15000, 0.05), (10000, 0.07), (2000, 0.09), (400, 0.12)]:
         ax.scatter(cx, cy, s=size, c="white", alpha=alpha, linewidths=0)
 
 # ------- Blob Generation -------
-NUM_BLOBS = int(300 * density)
+NUM_BLOBS = int(600 * density)          # was 300, doubled
+blobs_per_cluster = NUM_BLOBS // NUM_CLUSTERS
 
-for _ in range(NUM_BLOBS):
+for i in range(NUM_CLUSTERS):
+    cx, cy = cluster_x[i], cluster_y[i]
+    sx = cluster_spread_x[i]
+    sy = cluster_spread_y[i]
+    angle = cluster_angle[i]
+
+    for _ in range(blobs_per_cluster):
+        dist_scale = rng.power(0.4) + 1.2
+
+        raw_x = rng.normal(0, sx * dist_scale)
+        raw_y = rng.normal(0, sy * dist_scale)
+
+        blob_x = cx + raw_x * np.cos(angle) - raw_y * np.sin(angle)
+        blob_y = cy + raw_x * np.sin(angle) + raw_y * np.cos(angle)
+
+        blob_x += rng.normal(0, 0.015)
+        blob_y += rng.normal(0, 0.015)
+
+        dist = np.sqrt((blob_x - cx)**2 + (blob_y - cy)**2)
+        gradient_factor = np.exp(-dist * 4.0)
+
+        blob_alpha = rng.uniform(0.03, 0.10) * gradient_factor + 0.005  # slightly lower so blending stays soft
+        blob_size = rng.uniform(8000, 25000) * (0.5 + 0.5 * gradient_factor)  # bigger blobs, was 3000 to 15000
+
+        color = palette[rng.integers(0, len(palette))]
+        ax.scatter(blob_x, blob_y, s=blob_size, c=color, alpha=blob_alpha, linewidths=0)
+
+# ------- Filaments -------
+NUM_FILAMENTS = int(rng.integers(6, 12) * density)
+
+for _ in range(NUM_FILAMENTS):
     cluster_idx = rng.integers(0, NUM_CLUSTERS)
-    cx, cy = cluster_x[cluster_idx], cluster_y[cluster_idx]
-    sx = cluster_spread_x[cluster_idx]
-    sy = cluster_spread_y[cluster_idx]
-    angle = cluster_angle[cluster_idx]
+    start_x = cluster_x[cluster_idx]
+    start_y = cluster_y[cluster_idx]
 
-    raw_x = rng.normal(0, sx)
-    raw_y = rng.normal(0, sy)
-
-    blob_x = cx + raw_x * np.cos(angle) - raw_y * np.sin(angle)
-    blob_y = cy + raw_x * np.sin(angle) + raw_y * np.cos(angle)
-
-    # small nudge for irregularity
-    blob_x += rng.normal(0, 0.02)
-    blob_y += rng.normal(0, 0.02)
-
+    angle = rng.uniform(0, 2 * np.pi)
+    curve = rng.uniform(-0.4, 0.4)        # subtle bends, was -1.2 to 1.2
+    length = rng.uniform(0.05, 0.18)      # much shorter, was 0.15 to 0.45
     color = palette[rng.integers(0, len(palette))]
-    blob_size = rng.uniform(3000, 15000)
-    blob_alpha = rng.uniform(0.04, 0.15)
 
-    ax.scatter(blob_x, blob_y, s=blob_size, c=color, alpha=blob_alpha, linewidths=0)
+    NUM_POINTS = 40
+    for j in range(NUM_POINTS):
+        t = j / NUM_POINTS
+
+        fx = start_x + t * length * np.cos(angle) + curve * np.sin(t * np.pi) * np.cos(angle + np.pi / 2)
+        fy = start_y + t * length * np.sin(angle) + curve * np.sin(t * np.pi) * np.sin(angle + np.pi / 2)
+
+        alpha = rng.uniform(0.06, 0.18) * (1 - t) + 0.01
+        size = rng.uniform(200, 1200) * (1 - t * 0.8)   # much smaller, was 800 to 4000
+
+        ax.scatter(fx, fy, s=size, c=color, alpha=alpha, linewidths=0)
 
 # ------- Highlight Stars -------
 NUM_HIGHLIGHTS = 15
